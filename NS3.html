@@ -5,6 +5,7 @@
 	<title>EaselJS Example: Rollovers and Drag &amp; Drop</title>
 
 	<link href="./NS3/demoStyles.css" rel="stylesheet" type="text/css">
+	<link rel="stylesheet" href="http://cdn.bootcss.com/twitter-bootstrap/3.0.3/css/bootstrap.min.css">
 
 	<!-- Note: All core EaselJS classes are listed here: -->
 	<script type="text/javascript" src="./NS3/Event.js"></script>
@@ -47,12 +48,39 @@
 	var offset;
 	var update = true;
 	var devicesSrc = ["icon/client.png", "icon/router.png","icon/client.png", "icon/router.png","icon/client.png", "icon/router.png","icon/client.png", "icon/router.png"];
-	var toolsSrc = ["icon/mov.png", "icon/line.png"];
-	var devices, tools;
+	var toolsSrc = ["icon/mov.png", "icon/line.png", "icon/trashcan.png","icon/edit.png"];
+	var devices, tools,tableDiv;
 	var devicesHavePut = 0;
 	var toolsHavePut = 0;
 	var dragContainer = new createjs.Container();
 	var mode = 0;//0--move 1--line
+	// var line = new createjs.Graphics(); //line.setStrokeStyle(1); line.beginFill(createjs.Graphics.getRGB(0,0,0)); 
+	var fromx, fromy, drawing, connect1, connect2;
+	drawing = 0;
+
+	var nodes = new Array;
+	var lines = new Array;
+	var nodesnum = 0;
+	var linesnum = 0;
+
+	var linesContainer = new createjs.Container();				
+
+	Array.prototype.indexOf = function(val) {            
+		for (var i = 0; i < this.length; i++) {
+			if (this[i].name == val) return i;
+		}
+		return -1;
+	};
+
+	Array.prototype.removeByName = function(val) {
+		var index = this.indexOf(val);
+		if (index > -1) {
+			this.splice(index, 1);
+		}
+	};
+
+
+
 
 	function init() {
 		if (window.top != window) {
@@ -63,6 +91,8 @@
 		canvas = document.getElementById("testCanvas");
 		devicesCavas = document.getElementById("devicesCavas")
 		toolsCavas = document.getElementById("toolsCavas")
+		tableDiv = document.getElementById("tableDiv")
+		tableDiv.style.visibility = "hidden";
 
 		//check to see if we are running in a browser with touch support
 		stage = new createjs.Stage(canvas);
@@ -77,6 +107,7 @@
 		stage.enableMouseOver(10);
 		stage.mouseMoveOutside = true; // keep tracking the mouse even when it leaves the canvas
 		stage.addChild(dragContainer);
+		stage.addChildAt(linesContainer, 1);
 
 		devicesStage.enableMouseOver(10);
 		devicesStage.mouseMoveOutside = true;
@@ -91,9 +122,41 @@
 		
 		devices = loadDeviceImage();
 		tools = loadToolsImage();
+		initDatabase();
 
 
 	}
+
+	function handleDeviceLoad(event){
+		var image = event.target;
+		var num = devicesHavePut;
+		devicesHavePut = devicesHavePut+1;
+		var bitmap;
+		var container = new createjs.Container();
+		devicesStage.addChild(container);
+		bitmap = new createjs.Bitmap(image)
+		container.addChild(bitmap);
+		bitmap.x = num%3*100;
+		bitmap.y = (num-num%3)/3*100;
+		bitmap.scaleX = bitmap.scaleY = bitmap.scale = 0.5;		
+
+		bitmap.name = event.target.src;
+
+
+		bitmap.cursor = "pointer";
+		console.log(bitmap.name);
+
+		bitmap.on("mousedown", function(event){
+			var image = new Image;
+			image.type = 1;
+			image.src = bitmap.name;
+			image.onload = insertDevice;
+		});		
+		createjs.Ticker.addEventListener("tick", tick);
+		
+
+	}
+
 
 	function loadDeviceImage(){
 		var devices = []
@@ -105,17 +168,6 @@
 		}
 
 	}
-	
-	function loadToolsImage(){
-		var tools = []
-		for(i = 0; i < toolsSrc.length; i++){
-			tools.push(new Image());
-			tools[i].src = toolsSrc[i];
-			tools[i].onload = handleToolsLoad;
-			console.log(tools[i]);
-		}
-
-	}	
 
 	function handleToolsLoad(event){
 
@@ -138,45 +190,36 @@
 		bitmap.on("mousedown", function(event){
 			if(bitmap.name == 'mov.png'){
 				mode = 0;
-				console.log(mode);
 			}
 			else if(bitmap.name == 'line.png'){
 				mode = 1;
-				console.log(mode);
 			}
+			else if(bitmap.name == "trashcan.png"){
+				mode = 2;
+			}
+			else if(bitmap.name == "edit.png"){
+				mode = 3;
+			}
+			console.log(mode);
 		});		
 		createjs.Ticker.addEventListener("tick", tick);
 
 	}
+	
+	function loadToolsImage(){
+		var tools = []
+		for(i = 0; i < toolsSrc.length; i++){
+			tools.push(new Image());
+			tools[i].src = toolsSrc[i];
+			tools[i].onload = handleToolsLoad;
+			console.log(tools[i]);
+		}
 
-	function handleDeviceLoad(event){
-		var image = event.target;
-		var num = devicesHavePut;
-		devicesHavePut = devicesHavePut+1;
-		var bitmap;
-		var container = new createjs.Container();
-		devicesStage.addChild(container);
-		bitmap = new createjs.Bitmap(image)
-		container.addChild(bitmap);
-		bitmap.x = num%3*100;
-		bitmap.y = (num-num%3)/3*100;
-		bitmap.scaleX = bitmap.scaleY = bitmap.scale = 0.5;		
+	}	
 
-		bitmap.name = event.target.src;
+	
 
-		bitmap.cursor = "pointer";
-		console.log(bitmap.name);
-
-		bitmap.on("mousedown", function(event){
-			var image = new Image;
-			image.src = bitmap.name;
-			image.onload = insertDevice;
-		});		
-		createjs.Ticker.addEventListener("tick", tick);
-		
-
-	}
-
+	
 	function stop() {
 		createjs.Ticker.removeEventListener("tick", tick);
 	}
@@ -191,10 +234,17 @@
 		container.addChild(bitmap);
 		bitmap.scaleX = bitmap.scaleY = bitmap.scale = 0.5;		
 
-		bitmap.name = event.target.src;
+		bitmap.name = nodesnum;
+		nodesnum += 1;
+		bitmap.del = 0;
+
+		var imageTpye = event.target.src.split("/")
+		bitmap.type = imageTpye[imageTpye.length-1].split(".")[0]
 
 		bitmap.cursor = "pointer";
 		console.log(bitmap.name);
+
+		nodes.push(bitmap)
 	
 		update = true;	
 
@@ -214,14 +264,51 @@
 		bitmap.on("mousedown", function(evt) {
 			this.parent.addChild(this);
 			this.offset = {x:this.x-evt.stageX, y:this.y-evt.stageY};
+
+			if(mode == 1){
+				if(!drawing){
+					fromx = this.x+this.image.width*0.5*this.scale;
+					fromy = this.y+this.image.height*0.5*this.scale;
+					drawing = 1;
+					connect1 = this;
+					return 1;
+				}else{
+					drawing = 0;
+					var line = drawline(fromx,fromy, this.x+this.image.width*0.5*this.scale, this.y+this.image.height*0.5*this.scale, connect1, this);
+					line.name = linesnum;
+					linesnum += 1;
+					lines.push(line);
+
+					// stage.addChildAt( line, 1);
+					linesContainer.addChild(line);
+					// container.addChild(line);
+				}
+
+			}
+
+			else if(mode == 2){
+				nodes.removeByName(evt.target.name);
+				evt.target.parent.removeChild(evt.target);
+			}
+
+			else if(mode == 3){
+				tableDiv.style.visibility  = "visible";
+			}
+			update = true;
+			drawing = 0;
+
 		});
 		
 		// the pressmove event is dispatched when the mouse moves after a mousedown on the target until the mouse is released.
 		bitmap.on("pressmove", function(evt) {
-			this.x = evt.stageX+ this.offset.x;
-			this.y = evt.stageY+ this.offset.y;
-			// indicate that the stage should be updated on the next tick:
+			if(mode == 0){
+				this.x = evt.stageX+ this.offset.x;
+				this.y = evt.stageY+ this.offset.y;
+				// indicate that the stage should be updated on the next tick:
+			}
 			update = true;
+
+
 		});
 		
 		bitmap.on("rollover", function(evt) {
@@ -237,51 +324,29 @@
 
 	}
 
+	function drawline(fromx, fromy, tox, toy, connect1, connect2){
+		var g = new createjs.Graphics();
+		g.beginStroke(createjs.Graphics.getRGB(0, 0, 0));
+		g.setStrokeStyle(3, "round", "bevel");
+		g.moveTo(fromx,fromy).lineTo(tox,toy).endStroke();
+		var s = new createjs.Shape(g);
+		s.on("mousedown", function(evt) {
+			if(mode == 2){
+				evt.target.parent.removeChild(evt.target); 
+				console.log(evt.target.name);
+				lines.removeByName(evt.target.name);
+			}
+			update = true;
+		});
+		s.connect1 = connect1;
+		s.connect2 = connect2;
+		s.cursor = "pointer";
+		return s;
+
+	}
 	function handleImageLoad(event) {
 		var image = event.target;
 		var bitmap;
-
-
-		// create and populate the screen with random daisies:
-		for(var i = 0; i <0 ; i++){
-			bitmap = new createjs.Bitmap(image);
-			dragContainer.addChild(bitmap);
-			bitmap.x = canvas.width * Math.random()|0;
-			bitmap.y = canvas.height * Math.random()|0;
-			bitmap.rotation = 360 * Math.random()|0;
-			bitmap.regX = bitmap.image.width/2|0;
-			bitmap.regY = bitmap.image.height/2|0;
-			bitmap.scaleX = bitmap.scaleY = bitmap.scale = Math.random()*0.4+0.6;
-			bitmap.name = "bmp_"+i;
-			bitmap.cursor = "pointer";
-			
-			// using "on" binds the listener to the scope of the currentTarget by default
-			// in this case that means it executes in the scope of the button.
-			bitmap.on("mousedown", function(evt) {
-				this.parent.addChild(this);
-				this.offset = {x:this.x-evt.stageX, y:this.y-evt.stageY};
-			});
-			
-			// the pressmove event is dispatched when the mouse moves after a mousedown on the target until the mouse is released.
-			bitmap.on("pressmove", function(evt) {
-				this.x = evt.stageX+ this.offset.x;
-				this.y = evt.stageY+ this.offset.y;
-				// indicate that the stage should be updated on the next tick:
-				update = true;
-			});
-			
-			bitmap.on("rollover", function(evt) {
-				this.scaleX = this.scaleY = this.scale*1.2;
-				update = true;
-			});
-			
-			bitmap.on("rollout", function(evt) {
-				this.scaleX = this.scaleY = this.scale;
-				update = true;
-			});
-
-		}
-
 		document.getElementById("loader").className = "";
 		createjs.Ticker.addEventListener("tick", tick);
 	}
@@ -289,12 +354,51 @@
 	function tick(event) {
 		// this set makes it so the stage only re-renders when an event handler indicates a change has happened.
 		if (update) {
+			
+			linesContainer.removeAllChildren ()
+			var i = 0;
+			for(i = 0; i< lines.length; i++){
+				var line = drawline(lines[i].connect1.x+lines[i].connect1.image.width*0.5*lines[i].connect1.scale, lines[i].connect1.y+lines[i].connect1.image.height*0.5*lines[i].connect1.scale, lines[i].connect2.x+lines[i].connect2.image.width*0.5*lines[i].connect2.scale, lines[i].connect2.y+lines[i].connect2.image.height*0.5*lines[i].connect2.scale,  lines[i].connect1, lines[i].connect2)
+				line.name = lines[i].name;
+
+				linesContainer.addChild(line)
+			}
+
 			update = false; // only update once
 			stage.update(event);
 			devicesStage.update(event)
 			toolsStage.update(event)
+
 		}
 	}
+
+
+
+
+	function initDatabase() {
+		try {
+		    if (!window.openDatabase) {
+		        alert('Databases are not supported in this browser.');
+		    } else {
+		        var shortName = 'NS3DB';
+		        var version = '1.0';
+		        var displayName = 'NS3 Database';
+		        var maxSize = 100000; //  bytes
+		        DEMODB = openDatabase(shortName, version, displayName, maxSize);
+				createTables();
+				selectAll();
+		    }
+		} catch(e) {
+	 
+		    if (e == 2) {
+		        // Version number mismatch.
+		        console.log("Invalid database version.");
+		    } else {
+		        console.log("Unknown error "+e+".");
+		    }
+		    return;
+		}
+	}	
 	</script>
 
 <link type="text/css" rel="stylesheet" href="chrome-extension://cpngackimfmofbokmjmljamhdncknpmg/style.css"><script type="text/javascript" charset="utf-8" src="chrome-extension://cpngackimfmofbokmjmljamhdncknpmg/js/page_context.js"></script><script src="./NS3/common-1.0.js"></script></head>
@@ -312,8 +416,32 @@
 		<canvas id="toolsCavas" width="1624px" height="50" style="position: absolute;left: 0px;top:90px; background: rgb(235, 235, 235) "></canvas>
 		<canvas id="devicesCavas" width="300px" height="600" style="position: absolute;left: 0px;top:140px; background: rgb(235, 235, 235)"></canvas>
 		<canvas id="testCanvas" width="1024" height="600" style="position: absolute;left: 300px;top:140px; background: white;"></canvas>
-		<div id="Arguments" style="width:300px;height: 600px; position: absolute;left: 1324px; top: 140px; background: rgb(235, 235, 235);">
-	</div>
+		<div id="editDiv" style="width:300px;height: 600px; position: absolute;left: 1324px; top: 140px; background: rgb(235, 235, 235);">
 
+			<div id="tableDiv">
+			<div class="input-group">
+			  <span class="input-group-addon"> Name </span>
+			  <input type="text" class="form-control" placeholder="Username">
+			</div>
+
+			<div class="input-group">
+			  <span class="input-group-addon">Connect</span>
+			  <input type="text" class="form-control">
+
+			</div>
+
+			<div class="input-group">
+			  <span class="input-group-addon">$</span>
+			  <input type="text" class="form-control">
+			  <span class="input-group-addon">.00</span>
+			</div>
+			</div>>
+
+
+
+	</div>
+    <script src="http://cdn.bootcss.com/jquery/1.10.2/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="http://cdn.bootcss.com/twitter-bootstrap/3.0.3/js/bootstrap.min.js"></script>
 
 </body></html>
