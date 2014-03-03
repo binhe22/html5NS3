@@ -46,9 +46,13 @@
 	var dragStarted;	// indicates whether we are currently in a drag operation
 	var offset;
 	var update = true;
-	var devicesSrc = ["icon/client.png", "icon/router.png"]
-	var devices;
+	var devicesSrc = ["icon/client.png", "icon/router.png","icon/client.png", "icon/router.png","icon/client.png", "icon/router.png","icon/client.png", "icon/router.png"];
+	var toolsSrc = ["icon/mov.png", "icon/line.png"];
+	var devices, tools;
 	var devicesHavePut = 0;
+	var toolsHavePut = 0;
+	var dragContainer = new createjs.Container();
+	var mode = 0;//0--move 1--line
 
 	function init() {
 		if (window.top != window) {
@@ -58,10 +62,13 @@
 		// create stage and point it to the canvas:
 		canvas = document.getElementById("testCanvas");
 		devicesCavas = document.getElementById("devicesCavas")
+		toolsCavas = document.getElementById("toolsCavas")
 
 		//check to see if we are running in a browser with touch support
 		stage = new createjs.Stage(canvas);
 		devicesStage = new createjs.Stage(devicesCavas);
+		toolsStage = new createjs.Stage(toolsCavas);
+
 
 		// enable touch interactions if supported on the current device:
 		createjs.Touch.enable(stage);
@@ -69,12 +76,22 @@
 		// enabled mouse over / out events
 		stage.enableMouseOver(10);
 		stage.mouseMoveOutside = true; // keep tracking the mouse even when it leaves the canvas
+		stage.addChild(dragContainer);
+
+		devicesStage.enableMouseOver(10);
+		devicesStage.mouseMoveOutside = true;
+
+		toolsStage.enableMouseOver(10);
+		devicesStage.mouseMoveOutside = true;
 
 		// load the source image:
 		var image = new Image();
-		image.src = "Icon/client.png";
+		image.src = "icon/client.png";
 		image.onload = handleImageLoad;
+		
 		devices = loadDeviceImage();
+		tools = loadToolsImage();
+
 
 	}
 
@@ -88,36 +105,147 @@
 		}
 
 	}
+	
+	function loadToolsImage(){
+		var tools = []
+		for(i = 0; i < toolsSrc.length; i++){
+			tools.push(new Image());
+			tools[i].src = toolsSrc[i];
+			tools[i].onload = handleToolsLoad;
+			console.log(tools[i]);
+		}
+
+	}	
+
+	function handleToolsLoad(event){
+
+		var image = event.target;
+		var bitmap;
+		var container = new createjs.Container();
+		var num = toolsHavePut;
+		toolsHavePut +=1;
+		toolsStage.addChild(container);
+		bitmap = new createjs.Bitmap(image)
+		container.addChild(bitmap);	
+		bitmap.name = event.target.src.split('/');
+		bitmap.name = bitmap.name[bitmap.name.length-1]
+		console.log(bitmap.name)
+		bitmap.x = 320 + 80*num;
+		bitmap.scaleX = bitmap.scaleY = bitmap.scale = 0.1;		
+		bitmap.cursor = "pointer";
+		toolsStage.update(event)
+
+		bitmap.on("mousedown", function(event){
+			if(bitmap.name == 'mov.png'){
+				mode = 0;
+				console.log(mode);
+			}
+			else if(bitmap.name == 'line.png'){
+				mode = 1;
+				console.log(mode);
+			}
+		});		
+		createjs.Ticker.addEventListener("tick", tick);
+
+	}
+
 	function handleDeviceLoad(event){
 		var image = event.target;
+		var num = devicesHavePut;
+		devicesHavePut = devicesHavePut+1;
 		var bitmap;
 		var container = new createjs.Container();
 		devicesStage.addChild(container);
 		bitmap = new createjs.Bitmap(image)
 		container.addChild(bitmap);
-		bitmap.x = 10;
-		bitmap.y = 10;
-		bitmap.name = "test";
+		bitmap.x = num%3*100;
+		bitmap.y = (num-num%3)/3*100;
+		bitmap.scaleX = bitmap.scaleY = bitmap.scale = 0.5;		
+
+		bitmap.name = event.target.src;
+
 		bitmap.cursor = "pointer";
+		console.log(bitmap.name);
+
+		bitmap.on("mousedown", function(event){
+			var image = new Image;
+			image.src = bitmap.name;
+			image.onload = insertDevice;
+		});		
 		createjs.Ticker.addEventListener("tick", tick);
-		devicesStage.update();
-		console.log(i);
+		
+
 	}
 
 	function stop() {
 		createjs.Ticker.removeEventListener("tick", tick);
 	}
 
-	function handleImageLoad(event) {
+	function insertDevice(event){
+
 		var image = event.target;
 		var bitmap;
 		var container = new createjs.Container();
 		stage.addChild(container);
+		bitmap = new createjs.Bitmap(image)
+		container.addChild(bitmap);
+		bitmap.scaleX = bitmap.scaleY = bitmap.scale = 0.5;		
+
+		bitmap.name = event.target.src;
+
+		bitmap.cursor = "pointer";
+		console.log(bitmap.name);
+	
+		update = true;	
+
+		// var image = event.target;
+		// console.log(image)
+		// var bitmap;
+		// console.log(image);
+		// bitmap = createjs.Bitmap(image);
+
+		// dragContainer.addChild(bitmap);
+		// bitmap.scaleX = bitmap.scaleY = bitmap.scale = 0.5;
+		// bitmap.name = "bmp_"+i;
+		// bitmap.cursor = "pointer";
+		
+		// // using "on" binds the listener to the scope of the currentTarget by default
+		// // in this case that means it executes in the scope of the button.
+		bitmap.on("mousedown", function(evt) {
+			this.parent.addChild(this);
+			this.offset = {x:this.x-evt.stageX, y:this.y-evt.stageY};
+		});
+		
+		// the pressmove event is dispatched when the mouse moves after a mousedown on the target until the mouse is released.
+		bitmap.on("pressmove", function(evt) {
+			this.x = evt.stageX+ this.offset.x;
+			this.y = evt.stageY+ this.offset.y;
+			// indicate that the stage should be updated on the next tick:
+			update = true;
+		});
+		
+		bitmap.on("rollover", function(evt) {
+			this.scaleX = this.scaleY = this.scale*1.2;
+			update = true;
+		});
+		
+		bitmap.on("rollout", function(evt) {
+			this.scaleX = this.scaleY = this.scale;
+			update = true;
+		});
+		createjs.Ticker.addEventListener("tick", tick);
+
+	}
+
+	function handleImageLoad(event) {
+		var image = event.target;
+		var bitmap;
+
 
 		// create and populate the screen with random daisies:
-		for(var i = 0; i < 10; i++){
+		for(var i = 0; i <0 ; i++){
 			bitmap = new createjs.Bitmap(image);
-			container.addChild(bitmap);
+			dragContainer.addChild(bitmap);
 			bitmap.x = canvas.width * Math.random()|0;
 			bitmap.y = canvas.height * Math.random()|0;
 			bitmap.rotation = 360 * Math.random()|0;
@@ -163,6 +291,8 @@
 		if (update) {
 			update = false; // only update once
 			stage.update(event);
+			devicesStage.update(event)
+			toolsStage.update(event)
 		}
 	}
 	</script>
@@ -179,9 +309,10 @@
 	</header>
 
 	<div class="canvasHolder">
-		<canvas id="devicesCavas" width="300px" height="600" style="position: absolute;left: 0px;top:90px;background: white;"></canvas>
-		<canvas id="testCanvas" width="1024" height="600" style="position: absolute;left: 300px;top:90px; background: white;"></canvas>
-		<div id="Arguments" style="width:300px;height: 600px; position: absolute;left: 1324px; top: 90px; background: black;">
+		<canvas id="toolsCavas" width="1624px" height="50" style="position: absolute;left: 0px;top:90px; background: rgb(235, 235, 235) "></canvas>
+		<canvas id="devicesCavas" width="300px" height="600" style="position: absolute;left: 0px;top:140px; background: rgb(235, 235, 235)"></canvas>
+		<canvas id="testCanvas" width="1024" height="600" style="position: absolute;left: 300px;top:140px; background: white;"></canvas>
+		<div id="Arguments" style="width:300px;height: 600px; position: absolute;left: 1324px; top: 140px; background: rgb(235, 235, 235);">
 	</div>
 
 
