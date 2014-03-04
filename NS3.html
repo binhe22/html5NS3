@@ -35,14 +35,15 @@
 	<script type="text/javascript" src="./NS3/Touch.js"></script>
 	<script type="text/javascript" src="./NS3/SpriteSheetUtils.js"></script>
 	<script type="text/javascript" src="./NS3/SpriteSheetBuilder.js"></script>
+	<script type="text/javascript" src="./NS3/sprintf.min.js"></script>	
 
 	<!-- We also provide hosted minified versions of all CreateJS libraries.
 	  http://code.createjs.com -->
 
 	<script>
 
-	var canvas, stage;
 
+	var canvas, stage;
 	var mouseTarget;	// the display object currently under the mouse, or being dragged
 	var dragStarted;	// indicates whether we are currently in a drag operation
 	var offset;
@@ -63,7 +64,16 @@
 	var nodesnum = 0;
 	var linesnum = 0;
 
-	var linesContainer = new createjs.Container();				
+	var lineAtrribute= ["DataRate:DataRate", "Delay:Delay", "Channel:p2p(1),wifi(2),csma(3)"]
+	var devicesAtrribute = ["IP:IP", "Netmask:Netmask", "Application:UdpClient(1)/Server(2)"]
+
+
+	var editTableContent = '<div class="input-group" id = "input"> <span class="input-group-addon"> %s </span> <input type="text" id="%s" class="form-control" placeholder="Please input"> </div>'
+
+
+
+
+	var linesContainer = new createjs.Container();		
 
 	Array.prototype.indexOf = function(val) {            
 		for (var i = 0; i < this.length; i++) {
@@ -77,6 +87,23 @@
 		if (index > -1) {
 			this.splice(index, 1);
 		}
+	};
+
+	String.prototype.have = function(val){
+		for (var i= 0; i < this.length; i++){
+			if(val == this[i])
+				return true;
+		}
+		return false;
+	}
+
+
+	String.prototype.format = function(src){
+	    if (arguments.length == 0) return null;
+	    var args = Array.prototype.slice.call(arguments, 1);
+	    return src.replace(/\{(\d+)\}/g, function(m, i){
+	        return args[i];
+	    });
 	};
 
 
@@ -124,6 +151,84 @@
 		tools = loadToolsImage();
 		initDatabase();
 
+
+		var button = document.getElementById("submit");
+
+        if(button.addEventListener){
+             button.addEventListener("click",  saveAttribute);
+        } else {
+             button.attachEvent("click", saveAttribute);
+        };
+
+        var button = document.getElementById("run");
+
+        if(button.addEventListener){
+             button.addEventListener("click",  generateAndRun);
+        } else {
+             button.attachEvent("click", generateAndRun);
+        };
+
+
+	}
+
+
+	function generateAndRun(){
+		var linesJson = [];
+		var nodesJson = [];
+		for(var i = 0;i < lines.length; i++){
+			var oneLineInfo = {};
+			var connectObj = {"connect":lines[i].connect1.name+"_"+lines[i].connect2.name};
+			lines[i].attr.push(connectObj);
+			oneLineInfo["line_"+i] = lines[i].attr;
+			linesJson.push(oneLineInfo);
+		}
+		console.log(linesJson);
+		console.log(JSON.stringify(linesJson))
+
+		for(var i = 0;i < nodes.length; i++){
+			var oneNodeInfo = {};
+			oneNodeInfo["node_"+i] = nodes[i].attr;
+			nodesJson.push(oneNodeInfo);
+		}
+		console.log(JSON.stringify(nodesJson))
+
+
+		$.post("http://115.156.219.157:8888/", { Action: "post", Name: "lulu" },
+		function (data, textStatus){
+			// data 可以是 xmlDoc, jsonObj, html, text, 等等.
+			//this; // 这个Ajax请求的选项配置信息，请参考jQuery.get()说到的this
+			alert(data.result);
+		}, "json");
+
+
+	}
+
+	function saveAttribute(){
+
+		var name = tableDiv.getAttribute("name");
+		var type = name.split("_")[0];
+		var num = name.split("_")[1];
+		if(type == "node"){
+			for(var i = 0; i < devicesAtrribute.length; i++){
+				console.log(devicesAtrribute[i], document.getElementById(devicesAtrribute[i].split(":")[0]) )
+				var attrName = devicesAtrribute[i].split(":")[0];
+				var attr = document.getElementById(devicesAtrribute[i].split(":")[0]).value;
+				var o = {};
+				o[attrName] = attr;
+				nodes[num].attr.push(o);
+			}
+			
+		}else if(type == "line"){
+			for(var i = 0; i < lineAtrribute.length; i++){
+				console.log(lineAtrribute[i], document.getElementById(lineAtrribute[i].split(":")[0]) )
+				var attrName = lineAtrribute[i].split(":")[0];
+				var attr = document.getElementById(lineAtrribute[i].split(":")[0]).value;
+				var o = {};
+				o[attrName] = attr;
+				lines[num].attr.push(o);
+			}
+
+		} 
 
 	}
 
@@ -243,24 +348,11 @@
 
 		bitmap.cursor = "pointer";
 		console.log(bitmap.name);
+		bitmap.attr = new Array();
 
 		nodes.push(bitmap)
 	
 		update = true;	
-
-		// var image = event.target;
-		// console.log(image)
-		// var bitmap;
-		// console.log(image);
-		// bitmap = createjs.Bitmap(image);
-
-		// dragContainer.addChild(bitmap);
-		// bitmap.scaleX = bitmap.scaleY = bitmap.scale = 0.5;
-		// bitmap.name = "bmp_"+i;
-		// bitmap.cursor = "pointer";
-		
-		// // using "on" binds the listener to the scope of the currentTarget by default
-		// // in this case that means it executes in the scope of the button.
 		bitmap.on("mousedown", function(evt) {
 			this.parent.addChild(this);
 			this.offset = {x:this.x-evt.stageX, y:this.y-evt.stageY};
@@ -277,13 +369,12 @@
 					var line = drawline(fromx,fromy, this.x+this.image.width*0.5*this.scale, this.y+this.image.height*0.5*this.scale, connect1, this);
 					line.name = linesnum;
 					linesnum += 1;
+					line.attr = new Array();
 					lines.push(line);
-
 					// stage.addChildAt( line, 1);
 					linesContainer.addChild(line);
 					// container.addChild(line);
 				}
-
 			}
 
 			else if(mode == 2){
@@ -292,7 +383,8 @@
 			}
 
 			else if(mode == 3){
-				tableDiv.style.visibility  = "visible";
+				displayInputTable(devicesAtrribute, "node_"+this.name);
+
 			}
 			update = true;
 			drawing = 0;
@@ -324,6 +416,15 @@
 
 	}
 
+
+	function displayInputTable(attr, name){
+			tableDiv.innerHTML = "";
+			tableDiv.setAttribute("name", name);
+			for(var i =0; i < lineAtrribute.length; i++)
+				tableDiv.innerHTML += sprintf(editTableContent, attr[i].split(":")[1], attr[i].split(":")[0])
+			tableDiv.style.visibility = "visible";
+	}
+
 	function drawline(fromx, fromy, tox, toy, connect1, connect2){
 		var g = new createjs.Graphics();
 		g.beginStroke(createjs.Graphics.getRGB(0, 0, 0));
@@ -336,14 +437,17 @@
 				console.log(evt.target.name);
 				lines.removeByName(evt.target.name);
 			}
+			if(mode == 3){
+				displayInputTable(lineAtrribute,"line_"+this.name);
+			}
 			update = true;
 		});
 		s.connect1 = connect1;
 		s.connect2 = connect2;
 		s.cursor = "pointer";
 		return s;
-
 	}
+
 	function handleImageLoad(event) {
 		var image = event.target;
 		var bitmap;
@@ -358,6 +462,8 @@
 			linesContainer.removeAllChildren ()
 			var i = 0;
 			for(i = 0; i< lines.length; i++){
+
+
 				var line = drawline(lines[i].connect1.x+lines[i].connect1.image.width*0.5*lines[i].connect1.scale, lines[i].connect1.y+lines[i].connect1.image.height*0.5*lines[i].connect1.scale, lines[i].connect2.x+lines[i].connect2.image.width*0.5*lines[i].connect2.scale, lines[i].connect2.y+lines[i].connect2.image.height*0.5*lines[i].connect2.scale,  lines[i].connect1, lines[i].connect2)
 				line.name = lines[i].name;
 
@@ -389,7 +495,6 @@
 				selectAll();
 		    }
 		} catch(e) {
-	 
 		    if (e == 2) {
 		        // Version number mismatch.
 		        console.log("Invalid database version.");
@@ -417,29 +522,34 @@
 		<canvas id="devicesCavas" width="300px" height="600" style="position: absolute;left: 0px;top:140px; background: rgb(235, 235, 235)"></canvas>
 		<canvas id="testCanvas" width="1024" height="600" style="position: absolute;left: 300px;top:140px; background: white;"></canvas>
 		<div id="editDiv" style="width:300px;height: 600px; position: absolute;left: 1324px; top: 140px; background: rgb(235, 235, 235);">
-
-			<div id="tableDiv">
+		   <div id="tableDiv" >
 			<div class="input-group">
 			  <span class="input-group-addon"> Name </span>
 			  <input type="text" class="form-control" placeholder="Username">
 			</div>
+		   </div>
 
-			<div class="input-group">
-			  <span class="input-group-addon">Connect</span>
-			  <input type="text" class="form-control">
+		   <div id = "submit">
+		   <button type="button" class="btn btn-default btn-lg" >
+  			Submit
+			</button>
+		   </div>
+		</div>
 
-			</div>
+		<div id="echoDiv" style="width:1624px;height: 200px; position: absolute;left: 0px; top: 740px; background: rgb(100, 100, 100);">
+			<div id = "run">
+		   		<button type="button" class="btn btn-default btn-lg"  >
+  				Run
+				</button>
+		   </div>
+			<span style="color:white;">shell></span>
 
-			<div class="input-group">
-			  <span class="input-group-addon">$</span>
-			  <input type="text" class="form-control">
-			  <span class="input-group-addon">.00</span>
-			</div>
-			</div>>
-
-
+		</div>
 
 	</div>
+
+
+
     <script src="http://cdn.bootcss.com/jquery/1.10.2/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="http://cdn.bootcss.com/twitter-bootstrap/3.0.3/js/bootstrap.min.js"></script>
