@@ -48,12 +48,20 @@
 	var dragStarted;	// indicates whether we are currently in a drag operation
 	var offset;
 	var update = true;
+	
 	var devicesSrc = ["icon/client.png", "icon/router.png","icon/client.png", "icon/router.png","icon/client.png", "icon/router.png","icon/client.png", "icon/router.png"];
+	//you can add png here ,and the devices png will display
 	var toolsSrc = ["icon/mov.png", "icon/line.png", "icon/trashcan.png","icon/edit.png"];
+	//you can add png here, and the tools png will display
+	
 	var devices, tools,tableDiv;
+	
 	var devicesHavePut = 0;
 	var toolsHavePut = 0;
+	//used to sum the shitf of the png
+	
 	var dragContainer = new createjs.Container();
+	//for this ,you can google createjs and get how to use createjs to drwa in canvas
 	var mode = 0;//0--move 1--line
 	// var line = new createjs.Graphics(); //line.setStrokeStyle(1); line.beginFill(createjs.Graphics.getRGB(0,0,0)); 
 	var fromx, fromy, drawing, connect1, connect2;
@@ -61,12 +69,13 @@
 
 	var nodes = new Array;
 	var lines = new Array;
+	//all nodes
 	var nodesnum = 0;
 	var linesnum = 0;
 
 	var lineAtrribute= ["DataRate:DataRate", "Delay:Delay", "Channel:p2p(1),wifi(2),csma(3)"]
 	var devicesAtrribute = ["IP:IP", "Netmask:Netmask", "Application:UdpClient(1)/Server(2)"]
-
+	//the edit table content, you can add like this
 
 	var editTableContent = '<div class="input-group" id = "input"> <span class="input-group-addon"> %s </span> <input type="text" id="%s" class="form-control" placeholder="Please input"> </div>'
 
@@ -88,6 +97,7 @@
 			this.splice(index, 1);
 		}
 	};
+	//add methods to array
 
 	String.prototype.have = function(val){
 		for (var i= 0; i < this.length; i++){
@@ -105,42 +115,48 @@
 	        return args[i];
 	    });
 	};
+	//asdd methods to String
 
 
 
-
-	function init() {
+	function init() {// init and this it the entry 
 		if (window.top != window) {
 			document.getElementById("header").style.display = "none";
 		}
+		
 		document.getElementById("loader").className = "loader";
 		// create stage and point it to the canvas:
 		canvas = document.getElementById("testCanvas");
 		devicesCavas = document.getElementById("devicesCavas")
 		toolsCavas = document.getElementById("toolsCavas")
 		tableDiv = document.getElementById("tableDiv")
+		//get element by id
+		
 		tableDiv.style.visibility = "hidden";
-
-		//check to see if we are running in a browser with touch support
+		//at the begin ,do not make tableDiv display
+		
 		stage = new createjs.Stage(canvas);
 		devicesStage = new createjs.Stage(devicesCavas);
 		toolsStage = new createjs.Stage(toolsCavas);
+		//here ,we use 3 stages
 
 
-		// enable touch interactions if supported on the current device:
+
 		createjs.Touch.enable(stage);
-
-		// enabled mouse over / out events
-		stage.enableMouseOver(10);
-		stage.mouseMoveOutside = true; // keep tracking the mouse even when it leaves the canvas
-		stage.addChild(dragContainer);
-		stage.addChildAt(linesContainer, 1);
-
+		// enable touch interactions if supported on the current device:
+		toolsStage.enableMouseOver(10);
+		devicesStage.mouseMoveOutside = true;	
 		devicesStage.enableMouseOver(10);
 		devicesStage.mouseMoveOutside = true;
+		stage.enableMouseOver(10);
+		stage.mouseMoveOutside = true; // keep tracking the mouse even when it leaves the canvas
+		// enabled mouse over / out events	
+		
+		stage.addChild(dragContainer);
+		stage.addChildAt(linesContainer, 1);
+		
+		// add container to stage
 
-		toolsStage.enableMouseOver(10);
-		devicesStage.mouseMoveOutside = true;
 
 		// load the source image:
 		var image = new Image();
@@ -149,7 +165,8 @@
 		
 		devices = loadDeviceImage();
 		tools = loadToolsImage();
-		initDatabase();
+		
+		initDatabase();//wo have not used up to now
 
 
 		var button = document.getElementById("submit");
@@ -167,12 +184,13 @@
         } else {
              button.attachEvent("click", generateAndRun);
         };
+        //add listener to run and submit
 
 
 	}
 
 
-	function generateAndRun(){
+	function generateAndRun(){//generage json
 		var linesJson = [];
 		var nodesJson = [];
 		for(var i = 0;i < lines.length; i++){
@@ -203,7 +221,7 @@
 
 	}
 
-	function saveAttribute(){
+	function saveAttribute(){//save the imput in tableEdit 
 
 		var name = tableDiv.getAttribute("name");
 		var type = name.split("_")[0];
@@ -232,7 +250,7 @@
 
 	}
 
-	function handleDeviceLoad(event){
+	function handleDeviceLoad(event){//load device from the pngs
 		var image = event.target;
 		var num = devicesHavePut;
 		devicesHavePut = devicesHavePut+1;
@@ -274,7 +292,7 @@
 
 	}
 
-	function handleToolsLoad(event){
+	function handleToolsLoad(event){//load tools png
 
 		var image = event.target;
 		var bitmap;
@@ -329,7 +347,7 @@
 		createjs.Ticker.removeEventListener("tick", tick);
 	}
 
-	function insertDevice(event){
+	function insertDevice(event){//insert the device to deviceStage
 
 		var image = event.target;
 		var bitmap;
@@ -353,6 +371,7 @@
 		nodes.push(bitmap)
 	
 		update = true;	
+		//the content as follows is very important ,defines the behavior of each device in deviceStage 
 		bitmap.on("mousedown", function(evt) {
 			this.parent.addChild(this);
 			this.offset = {x:this.x-evt.stageX, y:this.y-evt.stageY};
@@ -417,7 +436,7 @@
 	}
 
 
-	function displayInputTable(attr, name){
+	function displayInputTable(attr, name){//make tableEdit display
 			tableDiv.innerHTML = "";
 			tableDiv.setAttribute("name", name);
 			for(var i =0; i < lineAtrribute.length; i++)
@@ -425,7 +444,7 @@
 			tableDiv.style.visibility = "visible";
 	}
 
-	function drawline(fromx, fromy, tox, toy, connect1, connect2){
+	function drawline(fromx, fromy, tox, toy, connect1, connect2){//drwa a line
 		var g = new createjs.Graphics();
 		g.beginStroke(createjs.Graphics.getRGB(0, 0, 0));
 		g.setStrokeStyle(3, "round", "bevel");
@@ -455,7 +474,7 @@
 		createjs.Ticker.addEventListener("tick", tick);
 	}
 
-	function tick(event) {
+	function tick(event) {//tick,as a timer(定时器)
 		// this set makes it so the stage only re-renders when an event handler indicates a change has happened.
 		if (update) {
 			
@@ -481,7 +500,7 @@
 
 
 
-	function initDatabase() {
+	function initDatabase() {//现在不用管
 		try {
 		    if (!window.openDatabase) {
 		        alert('Databases are not supported in this browser.');
